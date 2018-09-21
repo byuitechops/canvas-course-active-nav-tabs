@@ -1,0 +1,23 @@
+{
+  "name": "canvas-course-active-nav-tabs",
+  "version": "1.0.0",
+  "description": "Update the course navigation tabs on side of the course in Canvas to ensure all active tabs are grouped",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/byuitechops/canvas-course-active-nav-tabs.git"
+  },
+  "author": "Sam McGrath",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/byuitechops/canvas-course-active-nav-tabs/issues"
+  },
+  "homepage": "https://github.com/byuitechops/canvas-course-active-nav-tabs#readme",
+  "dependencies": {
+    "canvas-api-wrapper": "^3.3.3"
+  }
+}

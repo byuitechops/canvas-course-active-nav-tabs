@@ -14,12 +14,13 @@ function sortByVisibility(tabs) {
   //home and settings cannot be modified so we are going to just skip over them
   tabs = tabs.filter(tab => !['home', 'settings'].includes(tab.id));
 
+  // let settingsTab = tabs.splice(-1).pop();
   let hiddenTabs = tabs.filter(tab => tab.hidden);
   let visibleTabs = tabs.filter(tab => !tab.hidden);
 
   //connect arrays and then ensure position value is in order
-  return visibleTabs.concat(hiddenTabs).map(tab => ({ ...tab,
-    position: tab.position + 1
+  return visibleTabs.concat(hiddenTabs).map((tab, index) => ({ ...tab,
+    position: index + 2
   }));
 }
 
@@ -33,16 +34,16 @@ function sortByVisibility(tabs) {
  * does each one of the elements in the tabs array asynchronously. 
  */
 function organizeClassTabs(id, tabs) {
-  asyncLib.each(tabs, (tab, cb) => {
+  asyncLib.each(tabs, (tab, eachCallback) => {
     canvas.put(`/api/v1/courses/${id}/tabs/${tab.id}`, {
       'position': tab.position
     }, (putErr) => {
       if (putErr) {
-        cb(putErr);
+        eachCallback(putErr);
         return;
       }
 
-      cb(null);
+      eachCallback(null);
     });
 
   }, (err) => {
@@ -59,10 +60,10 @@ function organizeClassTabs(id, tabs) {
 //start here
 (async () => {
   const courses = await coursesGenerator.retrieve();
-  let exampleCourse = courses[0];
+  let exampleCourse = courses[1];
   let tabs = await canvas.get(`/api/v1/courses/${exampleCourse.id}/tabs`);
   let sortedTabs = sortByVisibility(tabs);
-  console.log(sortedTabs);
 
+  console.log(sortedTabs);
   // organizeClassTabs(exampleCourse.id, sortedTabs);
 })();

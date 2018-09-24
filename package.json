@@ -18,6 +18,8 @@
   },
   "homepage": "https://github.com/byuitechops/canvas-course-active-nav-tabs#readme",
   "dependencies": {
-    "canvas-api-wrapper": "^3.3.3"
+    "async": "^2.6.1",
+    "canvas-api-wrapper": "^3.3.3",
+    "canvas-course-list-generator": "git+https://github.com/byuitechops/canvas-course-list-generator.git"
   }
 }

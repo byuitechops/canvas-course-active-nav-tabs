@@ -14,7 +14,6 @@ function sortByVisibility(tabs) {
   //home and settings cannot be modified so we are going to just skip over them
   tabs = tabs.filter(tab => !['home', 'settings'].includes(tab.id));
 
-  // let settingsTab = tabs.splice(-1).pop();
   let hiddenTabs = tabs.filter(tab => tab.hidden);
   let visibleTabs = tabs.filter(tab => !tab.hidden);
 
@@ -33,12 +32,15 @@ function sortByVisibility(tabs) {
  * Since the Canvas api only allows for one tab to modified at a time, this function
  * does each one of the elements in the tabs array asynchronously. 
  */
-function organizeClassTabs(id, tabs) {
+async function organizeClassTabs(id, tabs) {
+  //problem is here -- async is getting the tabs in out of order and causing the position to be invalid sometimes
+  //<Promise.all>
   asyncLib.each(tabs, (tab, eachCallback) => {
     canvas.put(`/api/v1/courses/${id}/tabs/${tab.id}`, {
       'position': tab.position
     }, (putErr) => {
       if (putErr) {
+        console.log(tab);
         eachCallback(putErr);
         return;
       }
@@ -60,10 +62,13 @@ function organizeClassTabs(id, tabs) {
 //start here
 (async () => {
   const courses = await coursesGenerator.retrieve();
-  let exampleCourse = courses[1];
+  let exampleCourse = courses[31];
+  console.log(exampleCourse.id);
   let tabs = await canvas.get(`/api/v1/courses/${exampleCourse.id}/tabs`);
   let sortedTabs = sortByVisibility(tabs);
 
-  console.log(sortedTabs);
-  // organizeClassTabs(exampleCourse.id, sortedTabs);
+  // console.log(tabs);
+  // console.log('--------------------------------');
+  // console.log(sortedTabs);
+  organizeClassTabs(exampleCourse.id, sortedTabs);
 })();

@@ -20,6 +20,7 @@
   "dependencies": {
     "async": "^2.6.1",
     "canvas-api-wrapper": "^3.3.3",
-    "canvas-course-list-generator": "git+https://github.com/byuitechops/canvas-course-list-generator.git"
+    "canvas-course-list-generator": "file:../canvas-course-list-generator",
+    "npm": "^6.4.1"
   }
 }

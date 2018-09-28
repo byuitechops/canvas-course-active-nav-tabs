@@ -54,15 +54,14 @@ function promptUser(promptUserCallback) {
  * the job done
  **/
 async function launchPuppeteer(data, url) {
-  let newUrl = `https://byui.instructure.com/courses/${url}`;
-  const browser = await puppeteer.launch({
-    headless: false
-  });
+  let newUrl = `https://byui.instructure.com/courses/${url.id}`;
+  const browser = await puppeteer.launch();
   const page = await browser.newPage();
+
   page.setViewport({
     height: 1600,
     width: 1080
-  })
+  });
 
   if (!isAuthenticated) await authenticate(page, data);
 
@@ -116,6 +115,8 @@ async function fixTabs(page, url, data) {
   }, data);
 
   await page.waitForSelector('#tab-navigation');
+  await page.goto(url);
+  await page.waitForSelector('#content');
 }
 
 /**
@@ -131,7 +132,7 @@ async function getScreenshot(page) {
   await page.screenshot({
     path: `screenshots/${name}_screenshot.png`
   });
-  console.log('Screenshot inserted');
+  console.log(`${name} completed. screenshot inserted`);
 }
 
 //start here
@@ -151,11 +152,12 @@ async function getScreenshot(page) {
       return;
     }
 
-    //const courses = await coursesGenerator.retrieve();
-    let courses = [
-      21050,
-    ];
+    const courses = await coursesGenerator.retrieve();
 
+    //to test on one course
+    // let courses = [
+    //   21050,
+    // ];
     const results = await courses.map(async course => await launchPuppeteer(data, course));
 
     Promise.all(results).then(course => console.log('Job succeeeded. Please refer to /screenshots for screenshots.'));

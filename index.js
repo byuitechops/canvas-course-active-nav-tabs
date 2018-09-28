@@ -79,7 +79,7 @@ async function launchPuppeteer(data, url) {
  * This function goes through the authentication phase.
  * 
  * TODO: 
- * - Error handling -> wrong user information
+ * - Error handling -> wrong user information (timeout??)
  **/
 async function authenticate(page, data) {
   console.log('Authenticating...');
@@ -102,11 +102,22 @@ async function authenticate(page, data) {
   console.log('Authenticated.');
 }
 
+/**
+ * fixTabs
+ * @param {Page} page  - puppeteer's page object 
+ * @param {string} url - url for page 
+ * @param {obj} data   - user's input for username/password
+ * 
+ * This function simply goes to the navigation part of settings and simply
+ * clicks save. This allows the active tabs to grouped up together on the top,
+ * which makes it super simple.
+ */
 async function fixTabs(page, url, data) {
   //$('#nav_disabled_list + p button[type=submit]')
   //settings#tab-navigation
   let newUrl = url.concat('/settings#tab-navigation');
 
+  //ensure that tab-navigation
   await page.goto(newUrl);
   await page.waitForSelector('#tab-navigation');
 
@@ -114,6 +125,7 @@ async function fixTabs(page, url, data) {
     document.querySelector('#nav_disabled_list + p button[type=submit]').click();
   }, data);
 
+  //prepping the page for the screenshot.
   await page.waitForSelector('#tab-navigation');
   await page.goto(url);
   await page.waitForSelector('#content');
@@ -137,11 +149,10 @@ async function getScreenshot(page) {
 
 //start here
 (async () => {
-  let exampleCourse = {
-    id: 21050
-  };
   let folder = './screenshots';
 
+  //puppeteer will throw an error if folder doesn't exists
+  //so this one just takes care of the issue before puppeteer sees it
   if (!fs.existsSync(folder)) {
     fs.mkdirSync(folder);
   }

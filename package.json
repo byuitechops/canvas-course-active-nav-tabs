@@ -1,7 +1,7 @@
 {
   "name": "canvas-course-active-nav-tabs",
   "version": "1.0.0",
-  "description": "Update the course navigation tabs on side of the course in Canvas to ensure all active tabs are grouped",
+  "description": "update the public tabs to be grouped together",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -21,6 +21,8 @@
     "async": "^2.6.1",
     "canvas-api-wrapper": "^3.3.3",
     "canvas-course-list-generator": "file:../canvas-course-list-generator",
-    "npm": "^6.4.1"
+    "fs": "0.0.1-security",
+    "prompt": "^1.0.0",
+    "puppeteer": "^1.8.0"
   }
 }

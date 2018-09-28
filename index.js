@@ -1,92 +1,163 @@
 const canvas = require('canvas-api-wrapper');
 const asyncLib = require('async');
+const prompt = require('prompt');
+const puppeteer = require('puppeteer');
+const fs = require('fs');
 const coursesGenerator = require('canvas-course-list-generator');
+var isAuthenticated = false;
 
-/** 
- * sortByVisibility
- * @param {array of obj} tabs - each tab in a specific canvas course
+/**
+ * promptUser(promptUserCallback)
+ * @param {callback} promptUserCallback the callback to pass the data object to
  * 
- * This function organizes the array into the correct order to ensure that
- * the tabs are in the correct order before putting them in the correct order
- * in the actual course.
- */
-function sortByVisibility(tabs) {
-  tabs = tabs.filter(tab => !['home', 'settings'].includes(tab.id));
+ * This function prompts the user for the username and password to use
+ * for the program.
+ * 
+ * TODO
+ * - Add checking for environment variables so user doesn't have to insert
+ * multiple times
+ **/
+function promptUser(promptUserCallback) {
+  let schema = {
+    properties: {
+      user: {
+        pattern: /[a-zA-Z\d]+/,
+        default: 'cct_allstars67',
+        message: 'user must be only letters, and numbers.',
+        required: true
+      },
+      password: {
+        pattern: /[a-zA-Z\d]+/,
+        message: 'password must be only letters, and numbers.',
+        replace: '*',
+        hidden: true,
+        required: true
+      }
+    }
+  };
 
-  // let hiddenTabs = tabs.filter(tab => tab.hidden);
-  let visibleTabs = tabs.filter(tab => !tab.hidden);
+  prompt.start();
 
-  //connect arrays and then ensure position value is in order
-  return stripHomeSetting(visibleTabs.map((tab, index) => ({
-    ...tab,
-    position: index + 2
-  })));
-}
+  prompt.get(schema, (err, results) => {
+    if (err) promptUserCallback(err);
 
-function stripHomeSetting(arr) {
-  //home and settings cannot be modified so we are going to just skip over them
-  return arr.filter(ele => !['home', 'settings'].includes(ele.id));
-}
-
-function filterUnneeded(unsorted, sorted) {
-  return sorted.filter((ele, sPosition) => unsorted.findIndex(uEle => uEle.id === ele.id && uEle.position === ele.position) !== sPosition);
+    promptUserCallback(null, results);
+  });
 }
 
 /**
- * organizeClassTabs
+ * launchPuppeteer(data, url)
+ * @param {object} data username and password given to us by user
+ * @param {int} url the course id
  * 
- * @param {int} id 
- * @param {array of obj} tabs 
- * 
- * Since the Canvas api only allows for one tab to modified at a time, this function
- * does each one of the elements in the tabs array asynchronously. 
- */
-function organizeClassTabs(id, tabs) {
-
-  canvas.put(`/api/v1/courses/${id}/tabs/context_external_tool_1079`, {
-    'position': 10,
-    'hidden': false
+ * This function goes through and call different functions to get
+ * the job done
+ **/
+async function launchPuppeteer(data, url) {
+  let newUrl = `https://byui.instructure.com/courses/${url}`;
+  const browser = await puppeteer.launch({
+    headless: false
   });
+  const page = await browser.newPage();
+  page.setViewport({
+    height: 1600,
+    width: 1080
+  })
 
+  if (!isAuthenticated) await authenticate(page, data);
+
+  await page.goto(newUrl);
+  await fixTabs(page, newUrl, data);
+  await getScreenshot(page);
+  await browser.close();
+}
+
+/**
+ * authenticate(page, data)
+ * @param {Page} page the current page we are on
+ * @param {object} data username and password given to us by user
+ * 
+ * This function goes through the authentication phase.
+ * 
+ * TODO: 
+ * - Error handling -> wrong user information
+ **/
+async function authenticate(page, data) {
+  console.log('Authenticating...');
+
+  await page.goto('https://byui.instructure.com/login/canvas');
+  await page.waitForSelector('#content');
+
+  //insert information submitted by user
+  await page.evaluate(data => {
+    let buttonSelector = '#login_form > div.ic-Login__actions > div.ic-Form-control.ic-Form-control--login > button';
+
+    document.querySelector('#pseudonym_session_unique_id').value = data.user;
+    document.querySelector('#pseudonym_session_password').value = data.password;
+    document.querySelector(buttonSelector).click();
+  }, data);
+
+  //TODO: add error handling here!
+  await page.waitForSelector('#DashboardCard_Container > div');
+  isAuthenticated = true;
+  console.log('Authenticated.');
+}
+
+async function fixTabs(page, url, data) {
   //$('#nav_disabled_list + p button[type=submit]')
+  //settings#tab-navigation
+  let newUrl = url.concat('/settings#tab-navigation');
 
+  await page.goto(newUrl);
+  await page.waitForSelector('#tab-navigation');
 
+  await page.evaluate(data => {
+    document.querySelector('#nav_disabled_list + p button[type=submit]').click();
+  }, data);
 
+  await page.waitForSelector('#tab-navigation');
+}
 
-  // asyncLib.eachSeries(tabs, (tab, eachCallback) => {
-  //   canvas.put(`/api/v1/courses/${id}/tabs/context_external_tool_255`, {
-  //     'position': 8,
-  //     'hidden': false
-  //   }, (putErr) => {
-  //     if (putErr) {
-  //       eachCallback(putErr);
-  //       return;
-  //     }
+/**
+ * getScreenshot(page)
+ * @param {Page} page the current page we are on
+ * 
+ * This function calls the puppeteer api to take 
+ * a screenshot.
+ **/
+async function getScreenshot(page) {
+  let name = await page.title();
 
-  //     eachCallback(null);
-  //   });
-  // }, (err) => {
-  //   if (err) {
-  //     console.log(`Err: ${err}.`);
-  //     return;
-  //   }
-
-  //   console.log(`Successfully ordered tabs`);
-  //   return;
-  // });
+  await page.screenshot({
+    path: `screenshots/${name}_screenshot.png`
+  });
+  console.log('Screenshot inserted');
 }
 
 //start here
 (async () => {
-  //const courses = await coursesGenerator.retrieve();
   let exampleCourse = {
     id: 21050
   };
+  let folder = './screenshots';
 
-  let tabs = stripHomeSetting(await canvas.get(`/api/v1/courses/${exampleCourse.id}/tabs`));
-  organizeClassTabs(exampleCourse.id, [tabs[2]])
-  // let sortedTabs = sortByVisibility(tabs);
-  // let updateCanvasTabArray = filterUnneeded(tabs, sortedTabs);
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder);
+  }
 
-  // organizeClassTabs(exampleCourse.id, sortedTabs);
+  promptUser(async (err, data) => {
+    if (err) {
+      console.log(err);
+      return;
+    }
+
+    //const courses = await coursesGenerator.retrieve();
+    let courses = [
+      21050,
+    ];
+
+    const results = await courses.map(async course => await launchPuppeteer(data, course));
+
+    Promise.all(results).then(course => console.log('Job succeeeded. Please refer to /screenshots for screenshots.'));
+  });
 })();

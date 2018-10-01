@@ -1,6 +1,6 @@
+const fs = require('fs');
 const prompt = require('prompt');
 const puppeteer = require('puppeteer');
-const fs = require('fs');
 const coursesGenerator = require('canvas-course-list-generator');
 
 /**
@@ -9,10 +9,6 @@ const coursesGenerator = require('canvas-course-list-generator');
  * 
  * This function prompts the user for the username and password to use
  * for the program.
- * 
- * TODO
- * - Add checking for environment variables so user doesn't have to insert
- * multiple times
  **/
 function promptUser(promptUserCallback) {
   let schema = {
@@ -43,27 +39,22 @@ function promptUser(promptUserCallback) {
 }
 
 /**
- * launchPuppeteer(data, url)
- * @param {object} data username and password given to us by user
- * @param {int} url the course id
+ * createAuthedPuppeteer
+ * @param {Array} data        - username and password given to us by user
+ * @param {Puppeteer} browser - browser of Puppeteer
  * 
- * This function goes through and call different functions to get
- * the job done
- **/
-async function launchPuppeteer(data, url) {
-  let newUrl = `https://byui.instructure.com/courses/${url.id}`;
-  const browser = await puppeteer.launch();
+ * This function simply creates a new page and then does
+ * the authentication on that page. It returns the browser
+ * because we don't want anything else to use the authentication
+ * tab so the browser stays authenticated with Canvas. This leads
+ * the program hvaing to authenticate only once.
+ */
+async function createAuthedPuppeteer(data, browser) {
   const page = await browser.newPage();
 
-  page.setViewport({
-    height: 1600,
-    width: 1080
-  });
+  await authenticate(page, data);
 
-  await page.goto(newUrl);
-  await fixTabs(page, newUrl, data);
-  await getScreenshot(page);
-  await browser.close();
+  return browser;
 }
 
 /**
@@ -72,11 +63,6 @@ async function launchPuppeteer(data, url) {
  * @param {object} data username and password given to us by user
  * 
  * This function goes through the authentication phase.
- * 
- * TODO: 
- * - Error handling -> wrong user information (timeout??)
- *   
- *   #flash_message_holder > li
  **/
 async function authenticate(page, data) {
   console.log('Authenticating...');
@@ -86,14 +72,10 @@ async function authenticate(page, data) {
 
   //insert information submitted by user
   await page.evaluate(data => {
-    let buttonSelector = '#login_form button[type=submit]';
-
     document.querySelector('#login_form input[type=text]').value = data.user;
     document.querySelector('#login_form input[type=password]').value = data.password;
-    document.querySelector(buttonSelector).click();
+    document.querySelector('#login_form button[type=submit]').click();
   }, data);
-
-  //TODO: add error handling here!
 
   await page.waitForSelector('#DashboardCard_Container');
 
@@ -126,10 +108,22 @@ async function fixTabs(page, url, data) {
   await page.waitForSelector('#tab-navigation');
   await page.goto(url);
   await page.waitForSelector('#content');
+  await getScreenshot(page);
+  await page.close();
+
 }
 
-async function createWindow() {
-  const browser = await puppeteer.launch();
+/**
+ * createFixTab
+ * @param {Puppeteer} browser - Puppeteer browser object
+ * @param {Int} id            - course id 
+ * @param {Array} data        - username and password given to us by user
+ * 
+ * This function creates a new tab and goes to the correct page. After setting up
+ * the page, it calls fixTabs()
+ */
+async function createFixTab(browser, id, data) {
+  let url = `https://byui.instructure.com/courses/${id}`;
   const page = await browser.newPage();
 
   page.setViewport({
@@ -137,7 +131,9 @@ async function createWindow() {
     width: 1080
   });
 
-  return page;
+  await page.goto(url)
+
+  return await fixTabs(page, url, data);
 }
 
 /**
@@ -153,7 +149,24 @@ async function getScreenshot(page) {
   await page.screenshot({
     path: `screenshots/${name}_screenshot.png`
   });
+
   console.log(`${name} completed. screenshot inserted`);
+}
+
+/**
+ * chunkify -- destructive
+ * @param {Array} courses - array of canvas courses
+ * 
+ * This function splits the array into chunks of arrays. 
+ */
+function chunkify(courses) {
+  const size = 5; //split array into an array with subarrays of size 5
+
+  return courses.reduce((chunks, ele, i) => {
+    (i % size) ? chunks[chunks.length - 1].push(ele): chunks.push([ele]);
+
+    return chunks;
+  }, []);
 }
 
 //start here
@@ -172,15 +185,20 @@ async function getScreenshot(page) {
       return;
     }
 
-    const courses = await coursesGenerator.retrieve();
-    const browser = await createWindow();
+    const courses = chunkify(await coursesGenerator.retrieve());
+    const browser = await puppeteer.launch({
+      headless: false
+    });
+    const authedBrowser = await createAuthedPuppeteer(data, browser);
 
-    //to test on one course
-    // let courses = [
-    //   21050,
-    // ];
-    const results = await courses.map(async course => await launchPuppeteer(data, course));
+    //iterate through each chunk sequentially
+    for (const course of courses) {
+      //perform async operations on the chunk
+      await Promise.all(course.map(async courseItem => {
+        await createFixTab(authedBrowser, courseItem.id, data);
+      }));
+    }
 
-    Promise.all(results).then(course => console.log('Job succeeeded. Please refer to /screenshots for screenshots.'));
+    authedBrowser.close();
   });
 })();

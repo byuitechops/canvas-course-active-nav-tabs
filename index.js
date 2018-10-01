@@ -1,10 +1,7 @@
-const canvas = require('canvas-api-wrapper');
-const asyncLib = require('async');
 const prompt = require('prompt');
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const coursesGenerator = require('canvas-course-list-generator');
-var isAuthenticated = false;
 
 /**
  * promptUser(promptUserCallback)
@@ -63,8 +60,6 @@ async function launchPuppeteer(data, url) {
     width: 1080
   });
 
-  if (!isAuthenticated) await authenticate(page, data);
-
   await page.goto(newUrl);
   await fixTabs(page, newUrl, data);
   await getScreenshot(page);
@@ -80,6 +75,8 @@ async function launchPuppeteer(data, url) {
  * 
  * TODO: 
  * - Error handling -> wrong user information (timeout??)
+ *   
+ *   #flash_message_holder > li
  **/
 async function authenticate(page, data) {
   console.log('Authenticating...');
@@ -89,16 +86,17 @@ async function authenticate(page, data) {
 
   //insert information submitted by user
   await page.evaluate(data => {
-    let buttonSelector = '#login_form > div.ic-Login__actions > div.ic-Form-control.ic-Form-control--login > button';
+    let buttonSelector = '#login_form button[type=submit]';
 
-    document.querySelector('#pseudonym_session_unique_id').value = data.user;
-    document.querySelector('#pseudonym_session_password').value = data.password;
+    document.querySelector('#login_form input[type=text]').value = data.user;
+    document.querySelector('#login_form input[type=password]').value = data.password;
     document.querySelector(buttonSelector).click();
   }, data);
 
   //TODO: add error handling here!
-  await page.waitForSelector('#DashboardCard_Container > div');
-  isAuthenticated = true;
+
+  await page.waitForSelector('#DashboardCard_Container');
+
   console.log('Authenticated.');
 }
 
@@ -113,7 +111,6 @@ async function authenticate(page, data) {
  * which makes it super simple.
  */
 async function fixTabs(page, url, data) {
-  //$('#nav_disabled_list + p button[type=submit]')
   //settings#tab-navigation
   let newUrl = url.concat('/settings#tab-navigation');
 
@@ -129,6 +126,18 @@ async function fixTabs(page, url, data) {
   await page.waitForSelector('#tab-navigation');
   await page.goto(url);
   await page.waitForSelector('#content');
+}
+
+async function createWindow() {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+
+  page.setViewport({
+    height: 1600,
+    width: 1080
+  });
+
+  return page;
 }
 
 /**
@@ -164,6 +173,7 @@ async function getScreenshot(page) {
     }
 
     const courses = await coursesGenerator.retrieve();
+    const browser = await createWindow();
 
     //to test on one course
     // let courses = [
